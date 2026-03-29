@@ -1,0 +1,57 @@
+services:
+  garage-db:
+    image: postgres:16
+    container_name: garage-db
+    environment:
+      POSTGRES_DB: garagedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d garagedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  appointment-db:
+    image: postgres:16
+    container_name: appointment-db
+    environment:
+      POSTGRES_DB: appointmentdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appointmentdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  garage-service:
+    build:
+      context: ./garage-service
+    container_name: garage-service
+    environment:
+      GARAGE_DB_HOST: garage-db
+    ports:
+      - "8081:8081"
+    depends_on:
+      garage-db:
+        condition: service_healthy
+
+  car-appointment-service:
+    build:
+      context: ./car-appointment-service
+    container_name: car-appointment-service
+    environment:
+      APPOINTMENT_DB_HOST: appointment-db
+      GARAGE_SERVICE_BASE_URL: http://garage-service:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      appointment-db:
+        condition: service_healthy
+      garage-service:
+        condition: service_started

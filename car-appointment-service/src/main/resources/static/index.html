@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Appointment Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Car Appointment Dashboard</h1>
+        <p>Service A (Consumer) calling Service B (Producer) with ETag collection caching.</p>
+    </header>
+
+    <section class="status-panel">
+        <div><strong>Last HTTP Status:</strong> <span id="lastStatus">Not called yet</span></div>
+        <div><strong>Current ETag:</strong> <span id="etagValue">None</span></div>
+        <button id="refreshBtn">Refresh Appointments</button>
+    </section>
+
+    <section class="form-grid">
+        <div class="card">
+            <h2>Add Appointment</h2>
+            <form id="addForm">
+                <label>Customer Name
+                    <input type="text" id="addCustomerName" required>
+                </label>
+                <label>Car Model
+                    <input type="text" id="addCarModel" required>
+                </label>
+                <label>Registration Number
+                    <input type="text" id="addRegistrationNumber" required>
+                </label>
+                <label>Service Type
+                    <input type="text" id="addServiceType" required>
+                </label>
+                <label>Appointment Date
+                    <input type="date" id="addAppointmentDate" required>
+                </label>
+                <label>Garage ID
+                    <input type="number" id="addGarageId" min="1" required>
+                </label>
+                <button type="submit">Add Appointment</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Edit Appointment</h2>
+            <form id="editForm">
+                <label>Appointment ID
+                    <input type="number" id="editAppointmentId" min="1" required>
+                </label>
+                <label>Customer Name
+                    <input type="text" id="editCustomerName" required>
+                </label>
+                <label>Car Model
+                    <input type="text" id="editCarModel" required>
+                </label>
+                <label>Registration Number
+                    <input type="text" id="editRegistrationNumber" required>
+                </label>
+                <label>Service Type
+                    <input type="text" id="editServiceType" required>
+                </label>
+                <label>Appointment Date
+                    <input type="date" id="editAppointmentDate" required>
+                </label>
+                <label>Garage ID
+                    <input type="number" id="editGarageId" min="1" required>
+                </label>
+                <button type="submit">Edit Appointment</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Appointments</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Car Model</th>
+                <th>Reg Number</th>
+                <th>Service Type</th>
+                <th>Date</th>
+                <th>Garage Name</th>
+                <th>Garage Location</th>
+                <th>Garage Speciality</th>
+            </tr>
+            </thead>
+            <tbody id="appointmentsBody">
+            <tr>
+                <td colspan="9" class="empty-message">Click refresh to load appointments.</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
