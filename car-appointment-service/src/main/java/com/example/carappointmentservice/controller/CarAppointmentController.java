@@ -65,9 +65,9 @@ public class CarAppointmentController {
     }
 
     @PostMapping
-    public Mono<ResponseEntity<?>> createAppointment(@Valid @RequestBody CarAppointment appointment) {
+    public Mono<ResponseEntity<Object>> createAppointment(@Valid @RequestBody CarAppointment appointment) {
         return appointmentService.createAppointment(appointment)
-                .map(saved -> {
+                .<ResponseEntity<Object>>map(saved -> {
                     URI location = ServletUriComponentsBuilder
                             .fromCurrentRequest()
                             .path("/{id}")
@@ -81,10 +81,10 @@ public class CarAppointmentController {
     }
 
     @PutMapping("/{id}")
-    public Mono<ResponseEntity<?>> editAppointment(@PathVariable Long id,
-                                                   @Valid @RequestBody CarAppointment updatedAppointment) {
+    public Mono<ResponseEntity<Object>> editAppointment(@PathVariable Long id,
+                                                        @Valid @RequestBody CarAppointment updatedAppointment) {
         return appointmentService.editAppointment(id, updatedAppointment)
-                .map(saved -> ResponseEntity.ok().body(saved))
+                .<ResponseEntity<Object>>map(saved -> ResponseEntity.ok().body(saved))
                 .defaultIfEmpty(ResponseEntity.notFound().build())
                 .onErrorResume(IllegalArgumentException.class,
                         ex -> Mono.just(ResponseEntity.badRequest().body(ex.getMessage())));
@@ -106,7 +106,7 @@ public class CarAppointmentController {
 
         String cleaned = rawEtag.trim();
         cleaned = cleaned.replace("W/", "");
-        cleaned = cleaned.replace(""", "");
+        cleaned = cleaned.replace("\"", "");
         return cleaned;
     }
 }
