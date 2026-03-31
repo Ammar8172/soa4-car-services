@@ -8,94 +8,128 @@
 </head>
 <body>
 <div class="container">
-    <header>
-        <h1>Car Appointment Dashboard</h1>
-        <p>Service A (Consumer) calling Service B (Producer) with ETag collection caching.</p>
+    <header class="page-header">
+        <div class="header-copy">
+            <p class="eyebrow">Service Desk</p>
+            <h1>Car Appointment Dashboard</h1>
+            <p class="subtitle">Create appointments faster, pick garages by name, and edit bookings directly from the table.</p>
+        </div>
+        <div class="header-actions">
+            <button id="refreshBtn" type="button">Refresh Appointments</button>
+            <button id="refreshGaragesBtn" type="button" class="btn-secondary">Reload Garages</button>
+        </div>
     </header>
 
-    <section class="status-panel">
-        <div><strong>Last HTTP Status:</strong> <span id="lastStatus">Not called yet</span></div>
-        <div><strong>Current ETag:</strong> <span id="etagValue">None</span></div>
-        <button id="refreshBtn">Refresh Appointments</button>
+    <section class="stats-grid">
+        <article class="stat-card">
+            <span class="stat-label">Last HTTP Status</span>
+            <strong id="lastStatus">Not called yet</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Current ETag</span>
+            <strong id="etagValue">None</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Appointments</span>
+            <strong id="appointmentCount">0</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Available Garages</span>
+            <strong id="garageCount">0</strong>
+        </article>
     </section>
 
-    <section class="form-grid">
-        <div class="card">
-            <h2>Add Appointment</h2>
-            <form id="addForm">
-                <label>Customer Name
-                    <input type="text" id="addCustomerName" required>
-                </label>
-                <label>Car Model
-                    <input type="text" id="addCarModel" required>
-                </label>
-                <label>Registration Number
-                    <input type="text" id="addRegistrationNumber" required>
-                </label>
-                <label>Service Type
-                    <input type="text" id="addServiceType" required>
-                </label>
-                <label>Appointment Date
-                    <input type="date" id="addAppointmentDate" required>
-                </label>
-                <label>Garage ID
-                    <input type="number" id="addGarageId" min="1" required>
-                </label>
-                <button type="submit">Add Appointment</button>
-            </form>
+    <section id="notice" class="notice hidden" aria-live="polite"></section>
+
+    <section class="card add-card">
+        <div class="section-heading">
+            <div>
+                <h2>Add Appointment</h2>
+                <p class="muted">Select a garage by name. The correct garage ID is linked automatically in the background.</p>
+            </div>
         </div>
 
-        <div class="card">
-            <h2>Edit Appointment</h2>
-            <form id="editForm">
-                <label>Appointment ID
-                    <input type="number" id="editAppointmentId" min="1" required>
+        <form id="addForm" class="appointment-form">
+            <div class="field-grid">
+                <label>
+                    Customer Name
+                    <input type="text" id="addCustomerName" placeholder="e.g. Ali Hassan" required>
                 </label>
-                <label>Customer Name
-                    <input type="text" id="editCustomerName" required>
+                <label>
+                    Car Model
+                    <input type="text" id="addCarModel" placeholder="e.g. Toyota Corolla" required>
                 </label>
-                <label>Car Model
-                    <input type="text" id="editCarModel" required>
+                <label>
+                    Registration Number
+                    <input type="text" id="addRegistrationNumber" placeholder="e.g. 12-D-12345" required>
                 </label>
-                <label>Registration Number
-                    <input type="text" id="editRegistrationNumber" required>
+                <label>
+                    Service Type
+                    <input type="text" id="addServiceType" list="serviceTypeOptions" placeholder="Choose or type a service" required>
                 </label>
-                <label>Service Type
-                    <input type="text" id="editServiceType" required>
+                <label>
+                    Appointment Date
+                    <input type="date" id="addAppointmentDate" required>
                 </label>
-                <label>Appointment Date
-                    <input type="date" id="editAppointmentDate" required>
+                <label>
+                    Garage Name
+                    <select id="addGarageId" required>
+                        <option value="">Loading garages...</option>
+                    </select>
                 </label>
-                <label>Garage ID
-                    <input type="number" id="editGarageId" min="1" required>
-                </label>
-                <button type="submit">Edit Appointment</button>
-            </form>
-        </div>
+            </div>
+
+            <div class="form-footer">
+                <span class="hint">No more manual garage IDs.</span>
+                <button id="addSubmitBtn" type="submit">Add Appointment</button>
+            </div>
+        </form>
+
+        <datalist id="serviceTypeOptions">
+            <option value="Oil Change"></option>
+            <option value="Tyre Check"></option>
+            <option value="Full Service"></option>
+            <option value="Brake Inspection"></option>
+            <option value="Engine Repair"></option>
+            <option value="Battery Check"></option>
+        </datalist>
     </section>
 
     <section class="card">
-        <h2>Appointments</h2>
-        <table>
-            <thead>
-            <tr>
-                <th>ID</th>
-                <th>Customer</th>
-                <th>Car Model</th>
-                <th>Reg Number</th>
-                <th>Service Type</th>
-                <th>Date</th>
-                <th>Garage Name</th>
-                <th>Garage Location</th>
-                <th>Garage Speciality</th>
-            </tr>
-            </thead>
-            <tbody id="appointmentsBody">
-            <tr>
-                <td colspan="9" class="empty-message">Click refresh to load appointments.</td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="table-toolbar">
+            <div>
+                <h2>Appointments</h2>
+                <p class="muted">Use the edit button beside each customer to update a booking inline.</p>
+            </div>
+            <label class="search-box">
+                <span>Search</span>
+                <input type="search" id="searchInput" placeholder="Customer, car, reg number, or garage">
+            </label>
+        </div>
+
+        <div class="table-shell">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Actions</th>
+                    <th>Car Model</th>
+                    <th>Reg Number</th>
+                    <th>Service Type</th>
+                    <th>Date</th>
+                    <th>Garage Name</th>
+                    <th>Garage Location</th>
+                    <th>Garage Speciality</th>
+                </tr>
+                </thead>
+                <tbody id="appointmentsBody">
+                <tr>
+                    <td colspan="10" class="empty-message">Loading appointments...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 </div>
 
