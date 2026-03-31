@@ -32,8 +32,8 @@ async function init() {
 
 async function loadGarages(showFeedback = false) {
     try {
-        setAddFormEnabled(false);
         addGarageSelect.innerHTML = '<option value="">Loading garages...</option>';
+        setAddFormEnabled(false);
 
         const response = await fetch("/appointments/garages");
         lastStatusEl.textContent = `${response.status} ${response.statusText}`;
@@ -42,40 +42,25 @@ async function loadGarages(showFeedback = false) {
             throw new Error(await extractErrorMessage(response));
         }
 
-        const loadedGarages = await response.json();
-        garages = Array.isArray(loadedGarages) ? loadedGarages : [];
-
-        if (!garages.length) {
-            garages = buildGarageListFromAppointments(cachedAppointments);
+        garages = await response.json();
+        if (!Array.isArray(garages)) {
+            garages = [];
         }
 
-        garages.sort((left, right) => {
-            const leftName = left?.garageName || "";
-            const rightName = right?.garageName || "";
-            return leftName.localeCompare(rightName);
-        });
-
+        garages.sort((a, b) => (a.garageName || "").localeCompare(b.garageName || ""));
         syncGarageSelects();
-        setAddFormEnabled(garages.length > 0);
         garageCountEl.textContent = String(garages.length);
+        setAddFormEnabled(garages.length > 0);
 
         if (showFeedback) {
-            setNotice("Garage list refreshed.", "success");
+            setNotice("Garage list loaded successfully.", "success");
         }
     } catch (error) {
-        garages = buildGarageListFromAppointments(cachedAppointments);
-        syncGarageSelects();
-        setAddFormEnabled(garages.length > 0);
-        garageCountEl.textContent = String(garages.length);
-
-        if (garages.length > 0) {
-            setNotice("Garage endpoint is unavailable, so the dropdown was built from the garages already attached to existing appointments.", "warning");
-            return;
-        }
-
+        garages = [];
+        garageCountEl.textContent = "0";
         addGarageSelect.innerHTML = '<option value="">No garages available</option>';
         setAddFormEnabled(false);
-        setNotice(`Could not load garages. ${error.message || "Please make sure the garage service and appointment service are both running."}`, "error");
+        setNotice(`Could not load garages. ${error.message}`, "error");
     }
 }
 
@@ -98,17 +83,6 @@ async function refreshAppointments(showFeedback = false) {
         if (response.status === 200) {
             cachedAppointments = await response.json();
             renderAppointments(getFilteredAppointments());
-
-            if (!garages.length) {
-                const garageFallback = buildGarageListFromAppointments(cachedAppointments);
-                if (garageFallback.length) {
-                    garages = garageFallback;
-                    syncGarageSelects();
-                    setAddFormEnabled(true);
-                    garageCountEl.textContent = String(garages.length);
-                }
-            }
-
             if (showFeedback) {
                 setNotice("Appointments refreshed.", "success");
             }
@@ -125,7 +99,7 @@ async function refreshAppointments(showFeedback = false) {
 
         throw new Error(await extractErrorMessage(response));
     } catch (error) {
-        setNotice(`Could not refresh appointments. ${error.message || "Try again."}`, "error");
+        setNotice(`Could not refresh appointments. ${error.message}`, "error");
     }
 }
 
@@ -138,11 +112,11 @@ async function addAppointment(event) {
         registrationNumber: document.getElementById("addRegistrationNumber").value.trim(),
         serviceType: document.getElementById("addServiceType").value.trim(),
         appointmentDate: document.getElementById("addAppointmentDate").value,
-        garageId: Number(addGarageSelect.value)
+        garageId: Number(document.getElementById("addGarageId").value)
     };
 
     if (!appointment.garageId) {
-        setNotice("Please choose a garage name before adding the appointment.", "warning");
+        setNotice("Please select a garage.", "warning");
         return;
     }
 
@@ -161,12 +135,11 @@ async function addAppointment(event) {
 
         addForm.reset();
         document.getElementById("addAppointmentDate").value = new Date().toISOString().split("T")[0];
-        syncGarageSelects();
         invalidateEtag();
         setNotice("Appointment added successfully.", "success");
         await refreshAppointments();
     } catch (error) {
-        setNotice(`Failed to add appointment. ${error.message || "Try again."}`, "error");
+        setNotice(`Failed to add appointment. ${error.message}`, "error");
     }
 }
 
@@ -211,11 +184,6 @@ async function saveEditedAppointment(appointmentId) {
         garageId: Number(row.querySelector('[data-field="garageId"]').value)
     };
 
-    if (!appointment.garageId) {
-        setNotice("Please choose a valid garage name before saving the appointment.", "warning");
-        return;
-    }
-
     try {
         const response = await fetch(`/appointments/${appointmentId}`, {
             method: "PUT",
@@ -234,7 +202,7 @@ async function saveEditedAppointment(appointmentId) {
         setNotice("Appointment updated successfully.", "success");
         await refreshAppointments();
     } catch (error) {
-        setNotice(`Failed to update appointment. ${error.message || "Try again."}`, "error");
+        setNotice(`Failed to update appointment. ${error.message}`, "error");
     }
 }
 
@@ -250,39 +218,30 @@ function renderAppointments(appointments) {
         return;
     }
 
-    appointmentsBody.innerHTML = appointments
-        .map(appointment => editingAppointmentId === appointment.appointmentId
+    appointmentsBody.innerHTML = appointments.map(appointment =>
+        editingAppointmentId === appointment.appointmentId
             ? renderEditableRow(appointment)
-            : renderReadOnlyRow(appointment))
-        .join("");
+            : renderReadOnlyRow(appointment)
+    ).join("");
 }
 
 function renderReadOnlyRow(appointment) {
-    const garageName = appointment.garage?.garageName || "Unavailable";
-    const garageLocation = appointment.garage?.location || "Unknown";
-    const garageSpeciality = appointment.garage?.speciality || "Unavailable";
-
     return `
         <tr>
-            <td class="nowrap">${escapeHtml(String(appointment.appointmentId))}</td>
-            <td>
-                <div class="customer-cell">
-                    <div>
-                        <span class="customer-name">${escapeHtml(appointment.customerName || "")}</span>
-                        <span class="table-sub">${escapeHtml(appointment.garage?.phoneNumber || "Garage phone unavailable")}</span>
-                    </div>
-                </div>
-            </td>
+            <td>${appointment.appointmentId ?? ""}</td>
+            <td>${escapeHtml(appointment.customerName ?? "")}</td>
             <td class="actions-cell">
-                <button type="button" class="btn-ghost action-btn" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
+                <button type="button" class="btn-ghost action-btn" data-action="edit" data-id="${appointment.appointmentId}">
+                    Edit
+                </button>
             </td>
-            <td>${escapeHtml(appointment.carModel || "")}</td>
-            <td class="nowrap">${escapeHtml(appointment.registrationNumber || "")}</td>
-            <td class="nowrap">${escapeHtml(appointment.serviceType || "")}</td>
-            <td class="nowrap">${escapeHtml(appointment.appointmentDate || "")}</td>
-            <td>${escapeHtml(garageName)}</td>
-            <td>${escapeHtml(garageLocation)}</td>
-            <td>${escapeHtml(garageSpeciality)}</td>
+            <td>${escapeHtml(appointment.carModel ?? "")}</td>
+            <td>${escapeHtml(appointment.registrationNumber ?? "")}</td>
+            <td>${escapeHtml(appointment.serviceType ?? "")}</td>
+            <td>${escapeHtml(appointment.appointmentDate ?? "")}</td>
+            <td>${escapeHtml(appointment.garage?.garageName ?? "N/A")}</td>
+            <td>${escapeHtml(appointment.garage?.location ?? "N/A")}</td>
+            <td>${escapeHtml(appointment.garage?.speciality ?? "N/A")}</td>
         </tr>
     `;
 }
@@ -290,38 +249,40 @@ function renderReadOnlyRow(appointment) {
 function renderEditableRow(appointment) {
     return `
         <tr data-edit-row="${appointment.appointmentId}" class="editing-row">
-            <td class="nowrap">${escapeHtml(String(appointment.appointmentId))}</td>
-            <td><input class="inline-input" data-field="customerName" value="${escapeAttribute(appointment.customerName || "")}" required></td>
+            <td>${appointment.appointmentId ?? ""}</td>
+            <td><input class="inline-input" data-field="customerName" value="${escapeAttribute(appointment.customerName ?? "")}"></td>
             <td class="actions-cell">
                 <div class="row-actions">
-                    <button type="button" class="action-btn" data-action="save" data-id="${appointment.appointmentId}">Save</button>
-                    <button type="button" class="btn-secondary action-btn" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
+                    <button type="button" data-action="save" data-id="${appointment.appointmentId}">Save</button>
+                    <button type="button" class="btn-secondary" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
                 </div>
             </td>
-            <td><input class="inline-input" data-field="carModel" value="${escapeAttribute(appointment.carModel || "")}" required></td>
-            <td><input class="inline-input" data-field="registrationNumber" value="${escapeAttribute(appointment.registrationNumber || "")}" required></td>
-            <td><input class="inline-input" data-field="serviceType" value="${escapeAttribute(appointment.serviceType || "")}" required></td>
-            <td><input class="inline-input" type="date" data-field="appointmentDate" value="${escapeAttribute(appointment.appointmentDate || "")}" required></td>
+            <td><input class="inline-input" data-field="carModel" value="${escapeAttribute(appointment.carModel ?? "")}"></td>
+            <td><input class="inline-input" data-field="registrationNumber" value="${escapeAttribute(appointment.registrationNumber ?? "")}"></td>
+            <td><input class="inline-input" data-field="serviceType" value="${escapeAttribute(appointment.serviceType ?? "")}"></td>
+            <td><input class="inline-input" type="date" data-field="appointmentDate" value="${escapeAttribute(appointment.appointmentDate ?? "")}"></td>
             <td>
                 <select class="inline-select" data-field="garageId">
                     ${renderGarageOptions(appointment.garage?.garageId)}
                 </select>
             </td>
-            <td>${escapeHtml(appointment.garage?.location || "")}</td>
-            <td>${escapeHtml(appointment.garage?.speciality || "")}</td>
+            <td>${escapeHtml(appointment.garage?.location ?? "")}</td>
+            <td>${escapeHtml(appointment.garage?.speciality ?? "")}</td>
         </tr>
     `;
 }
 
 function renderGarageOptions(selectedGarageId = "") {
-    const placeholder = '<option value="">Select a garage</option>';
-    const options = garages.map(garage => {
-        const isSelected = String(garage.garageId) === String(selectedGarageId) ? "selected" : "";
-        const label = `${garage.garageName} • ${garage.location} • ${garage.speciality}`;
-        return `<option value="${garage.garageId}" ${isSelected}>${escapeHtml(label)}</option>`;
-    });
+    const options = ['<option value="">Select a garage</option>'];
 
-    return [placeholder, ...options].join("");
+    for (const garage of garages) {
+        const selected = String(garage.garageId) === String(selectedGarageId) ? "selected" : "";
+        options.push(
+            `<option value="${garage.garageId}" ${selected}>${escapeHtml(garage.garageName)}</option>`
+        );
+    }
+
+    return options.join("");
 }
 
 function syncGarageSelects() {
@@ -333,27 +294,6 @@ function syncGarageSelects() {
     addGarageSelect.innerHTML = renderGarageOptions();
 }
 
-function buildGarageListFromAppointments(appointments) {
-    const uniqueGarages = new Map();
-
-    appointments.forEach(appointment => {
-        const garage = appointment?.garage;
-        if (!garage?.garageId) {
-            return;
-        }
-
-        uniqueGarages.set(String(garage.garageId), {
-            garageId: garage.garageId,
-            garageName: garage.garageName || `Garage ${garage.garageId}`,
-            location: garage.location || "Unknown",
-            speciality: garage.speciality || "Unavailable",
-            phoneNumber: garage.phoneNumber || "Unavailable"
-        });
-    });
-
-    return Array.from(uniqueGarages.values());
-}
-
 function getFilteredAppointments() {
     const query = searchInput.value.trim().toLowerCase();
     if (!query) {
@@ -361,7 +301,7 @@ function getFilteredAppointments() {
     }
 
     return cachedAppointments.filter(appointment => {
-        const haystack = [
+        const text = [
             appointment.customerName,
             appointment.carModel,
             appointment.registrationNumber,
@@ -369,11 +309,10 @@ function getFilteredAppointments() {
             appointment.appointmentDate,
             appointment.garage?.garageName,
             appointment.garage?.location,
-            appointment.garage?.speciality,
-            appointment.garage?.phoneNumber
+            appointment.garage?.speciality
         ].join(" ").toLowerCase();
 
-        return haystack.includes(query);
+        return text.includes(query);
     });
 }
 
@@ -387,34 +326,14 @@ function invalidateEtag() {
     etagValueEl.textContent = "Invalidated after update";
 }
 
-function setAddFormEnabled(isEnabled) {
-    addSubmitBtn.disabled = !isEnabled;
-    addGarageSelect.disabled = !isEnabled;
+function setAddFormEnabled(enabled) {
+    addSubmitBtn.disabled = !enabled;
+    addGarageSelect.disabled = !enabled;
 }
 
 async function extractErrorMessage(response) {
     const text = await response.text();
-
-    if (!text) {
-        return `${response.status} ${response.statusText}`;
-    }
-
-    try {
-        const parsed = JSON.parse(text);
-        if (typeof parsed === "string") {
-            return parsed;
-        }
-        if (parsed.message) {
-            return parsed.message;
-        }
-        if (parsed.error) {
-            return parsed.error;
-        }
-    } catch (error) {
-        // ignore JSON parsing errors and use raw text below
-    }
-
-    return text.replace(/\s+/g, " ").trim();
+    return text ? text.trim() : `${response.status} ${response.statusText}`;
 }
 
 function escapeHtml(value) {
@@ -422,7 +341,7 @@ function escapeHtml(value) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
+        .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 }
 
