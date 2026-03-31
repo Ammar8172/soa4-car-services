@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Component
 public class GarageClient {
 
@@ -13,6 +15,18 @@ public class GarageClient {
 
     public GarageClient(WebClient garageWebClient) {
         this.webClient = garageWebClient;
+    }
+
+    public Mono<List<Garage>> getAllGarages() {
+        return webClient.get()
+                .uri("/garages")
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        Mono.error(new IllegalArgumentException("Unable to load garage list")))
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new IllegalStateException("Garage service error")))
+                .bodyToFlux(Garage.class)
+                .collectList();
     }
 
     public Mono<Garage> getGarageById(Long garageId) {

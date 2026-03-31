@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +30,14 @@ public class CarAppointmentService {
         return Flux.fromIterable(appointments)
                 .flatMapSequential(this::buildResponse)
                 .collectList();
+    }
+
+    public Mono<List<Garage>> getAllGarages() {
+        return garageClient.getAllGarages()
+                .map(allGarages -> {
+                    allGarages.sort(Comparator.comparing(Garage::getGarageName, String.CASE_INSENSITIVE_ORDER));
+                    return allGarages;
+                });
     }
 
     public Mono<AppointmentResponse> getAppointmentByIdWithGarage(Long id) {
@@ -83,6 +92,6 @@ public class CarAppointmentService {
         return garageClient.garageExists(garageId)
                 .flatMap(exists -> exists
                         ? Mono.just(true)
-                        : Mono.error(new IllegalArgumentException("Garage id " + garageId + " does not exist")));
+                        : Mono.error(new IllegalArgumentException("Garage ID " + garageId + " was not found. Please choose a garage from the list.")));
     }
 }

@@ -1,6 +1,7 @@
 package com.example.carappointmentservice.controller;
 
 import com.example.carappointmentservice.dto.AppointmentResponse;
+import com.example.carappointmentservice.dto.Garage;
 import com.example.carappointmentservice.entity.CarAppointment;
 import com.example.carappointmentservice.service.CarAppointmentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -55,6 +56,13 @@ public class CarAppointmentController {
                             .eTag(etag)
                             .body(appointments);
                 });
+    }
+
+    @GetMapping("/garages")
+    public Mono<ResponseEntity<List<Garage>>> getAvailableGarages() {
+        return appointmentService.getAllGarages()
+                .map(ResponseEntity::ok)
+                .onErrorResume(ex -> Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build()));
     }
 
     @GetMapping("/{id}")
