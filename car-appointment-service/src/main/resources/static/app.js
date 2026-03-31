@@ -20,14 +20,15 @@ refreshBtn.addEventListener("click", () => refreshAppointments(true));
 refreshGaragesBtn.addEventListener("click", () => loadGarages(true));
 addForm.addEventListener("submit", addAppointment);
 searchInput.addEventListener("input", () => renderAppointments(getFilteredAppointments()));
-appointmentsBody.addEventListener("click", handleTableActions);
+appointmentsBody.addEventListener("click", handleTableClick);
+appointmentsBody.addEventListener("change", handleTableChange);
 
 init();
 
 async function init() {
     document.getElementById("addAppointmentDate").value = new Date().toISOString().split("T")[0];
-    await refreshAppointments();
     await loadGarages();
+    await refreshAppointments();
 }
 
 async function loadGarages(showFeedback = false) {
@@ -42,18 +43,20 @@ async function loadGarages(showFeedback = false) {
             throw new Error(await extractErrorMessage(response));
         }
 
-        garages = await response.json();
-        if (!Array.isArray(garages)) {
-            garages = [];
-        }
-
+        const data = await response.json();
+        garages = Array.isArray(data) ? data : [];
         garages.sort((a, b) => (a.garageName || "").localeCompare(b.garageName || ""));
-        syncGarageSelects();
+
         garageCountEl.textContent = String(garages.length);
+        addGarageSelect.innerHTML = renderGarageOptions("");
         setAddFormEnabled(garages.length > 0);
 
         if (showFeedback) {
             setNotice("Garage list loaded successfully.", "success");
+        }
+
+        if (editingAppointmentId !== null) {
+            renderAppointments(getFilteredAppointments());
         }
     } catch (error) {
         garages = [];
@@ -82,6 +85,7 @@ async function refreshAppointments(showFeedback = false) {
 
         if (response.status === 200) {
             cachedAppointments = await response.json();
+            appointmentCountEl.textContent = String(cachedAppointments.length);
             renderAppointments(getFilteredAppointments());
             if (showFeedback) {
                 setNotice("Appointments refreshed.", "success");
@@ -90,6 +94,7 @@ async function refreshAppointments(showFeedback = false) {
         }
 
         if (response.status === 304) {
+            appointmentCountEl.textContent = String(cachedAppointments.length);
             renderAppointments(getFilteredAppointments());
             if (showFeedback) {
                 setNotice("Appointments are already up to date.", "info");
@@ -106,17 +111,17 @@ async function refreshAppointments(showFeedback = false) {
 async function addAppointment(event) {
     event.preventDefault();
 
-    const appointment = {
+    const payload = {
         customerName: document.getElementById("addCustomerName").value.trim(),
         carModel: document.getElementById("addCarModel").value.trim(),
         registrationNumber: document.getElementById("addRegistrationNumber").value.trim(),
         serviceType: document.getElementById("addServiceType").value.trim(),
         appointmentDate: document.getElementById("addAppointmentDate").value,
-        garageId: Number(document.getElementById("addGarageId").value)
+        garageId: Number(addGarageSelect.value)
     };
 
-    if (!appointment.garageId) {
-        setNotice("Please select a garage.", "warning");
+    if (!payload.garageId) {
+        setNotice("Please choose a garage first.", "warning");
         return;
     }
 
@@ -124,7 +129,7 @@ async function addAppointment(event) {
         const response = await fetch("/appointments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(appointment)
+            body: JSON.stringify(payload)
         });
 
         lastStatusEl.textContent = `${response.status} ${response.statusText}`;
@@ -135,6 +140,7 @@ async function addAppointment(event) {
 
         addForm.reset();
         document.getElementById("addAppointmentDate").value = new Date().toISOString().split("T")[0];
+        addGarageSelect.innerHTML = renderGarageOptions("");
         invalidateEtag();
         setNotice("Appointment added successfully.", "success");
         await refreshAppointments();
@@ -143,7 +149,7 @@ async function addAppointment(event) {
     }
 }
 
-function handleTableActions(event) {
+function handleTableClick(event) {
     const button = event.target.closest("button[data-action]");
     if (!button) {
         return;
@@ -169,13 +175,30 @@ function handleTableActions(event) {
     }
 }
 
+function handleTableChange(event) {
+    if (event.target.matches('select[data-field="garageId"]')) {
+        const appointmentId = Number(event.target.dataset.id);
+        const appointment = cachedAppointments.find(item => item.appointmentId === appointmentId);
+        if (!appointment) {
+            return;
+        }
+
+        const selectedGarage = garages.find(garage => String(garage.garageId) === String(event.target.value));
+        if (selectedGarage) {
+            appointment.garage = selectedGarage;
+            renderAppointments(getFilteredAppointments());
+            editingAppointmentId = appointmentId;
+        }
+    }
+}
+
 async function saveEditedAppointment(appointmentId) {
     const row = document.querySelector(`[data-edit-row="${appointmentId}"]`);
     if (!row) {
         return;
     }
 
-    const appointment = {
+    const payload = {
         customerName: row.querySelector('[data-field="customerName"]').value.trim(),
         carModel: row.querySelector('[data-field="carModel"]').value.trim(),
         registrationNumber: row.querySelector('[data-field="registrationNumber"]').value.trim(),
@@ -184,11 +207,16 @@ async function saveEditedAppointment(appointmentId) {
         garageId: Number(row.querySelector('[data-field="garageId"]').value)
     };
 
+    if (!payload.garageId) {
+        setNotice("Please choose a garage before saving.", "warning");
+        return;
+    }
+
     try {
         const response = await fetch(`/appointments/${appointmentId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(appointment)
+            body: JSON.stringify(payload)
         });
 
         lastStatusEl.textContent = `${response.status} ${response.statusText}`;
@@ -210,88 +238,69 @@ function renderAppointments(appointments) {
     appointmentCountEl.textContent = String(appointments.length);
 
     if (!appointments.length) {
-        appointmentsBody.innerHTML = `
-            <tr>
-                <td colspan="10" class="empty-message">No appointments found.</td>
-            </tr>
-        `;
+        appointmentsBody.innerHTML = '<tr><td colspan="10" class="empty-message">No appointments found.</td></tr>';
         return;
     }
 
-    appointmentsBody.innerHTML = appointments.map(appointment =>
-        editingAppointmentId === appointment.appointmentId
-            ? renderEditableRow(appointment)
-            : renderReadOnlyRow(appointment)
-    ).join("");
+    appointmentsBody.innerHTML = appointments.map(appointment => {
+        return editingAppointmentId === appointment.appointmentId
+            ? renderEditRow(appointment)
+            : renderReadRow(appointment);
+    }).join("");
 }
 
-function renderReadOnlyRow(appointment) {
+function renderReadRow(appointment) {
     return `
         <tr>
             <td>${appointment.appointmentId ?? ""}</td>
             <td>${escapeHtml(appointment.customerName ?? "")}</td>
-            <td class="actions-cell">
-                <button type="button" class="btn-ghost action-btn" data-action="edit" data-id="${appointment.appointmentId}">
-                    Edit
-                </button>
-            </td>
             <td>${escapeHtml(appointment.carModel ?? "")}</td>
             <td>${escapeHtml(appointment.registrationNumber ?? "")}</td>
             <td>${escapeHtml(appointment.serviceType ?? "")}</td>
             <td>${escapeHtml(appointment.appointmentDate ?? "")}</td>
-            <td>${escapeHtml(appointment.garage?.garageName ?? "N/A")}</td>
-            <td>${escapeHtml(appointment.garage?.location ?? "N/A")}</td>
-            <td>${escapeHtml(appointment.garage?.speciality ?? "N/A")}</td>
+            <td>${escapeHtml(appointment.garage?.garageName ?? "Unavailable")}</td>
+            <td>${escapeHtml(appointment.garage?.location ?? "Unknown")}</td>
+            <td>${escapeHtml(appointment.garage?.speciality ?? "Unavailable")}</td>
+            <td>
+                <button type="button" class="edit-btn" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
+            </td>
         </tr>
     `;
 }
 
-function renderEditableRow(appointment) {
+function renderEditRow(appointment) {
     return `
-        <tr data-edit-row="${appointment.appointmentId}" class="editing-row">
+        <tr class="editing-row" data-edit-row="${appointment.appointmentId}">
             <td>${appointment.appointmentId ?? ""}</td>
             <td><input class="inline-input" data-field="customerName" value="${escapeAttribute(appointment.customerName ?? "")}"></td>
-            <td class="actions-cell">
-                <div class="row-actions">
-                    <button type="button" data-action="save" data-id="${appointment.appointmentId}">Save</button>
-                    <button type="button" class="btn-secondary" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
-                </div>
-            </td>
             <td><input class="inline-input" data-field="carModel" value="${escapeAttribute(appointment.carModel ?? "")}"></td>
             <td><input class="inline-input" data-field="registrationNumber" value="${escapeAttribute(appointment.registrationNumber ?? "")}"></td>
             <td><input class="inline-input" data-field="serviceType" value="${escapeAttribute(appointment.serviceType ?? "")}"></td>
             <td><input class="inline-input" type="date" data-field="appointmentDate" value="${escapeAttribute(appointment.appointmentDate ?? "")}"></td>
             <td>
-                <select class="inline-select" data-field="garageId">
+                <select class="inline-select" data-field="garageId" data-id="${appointment.appointmentId}">
                     ${renderGarageOptions(appointment.garage?.garageId)}
                 </select>
             </td>
             <td>${escapeHtml(appointment.garage?.location ?? "")}</td>
             <td>${escapeHtml(appointment.garage?.speciality ?? "")}</td>
+            <td>
+                <div class="row-actions">
+                    <button type="button" class="save-btn" data-action="save" data-id="${appointment.appointmentId}">Save</button>
+                    <button type="button" class="cancel-btn" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
+                </div>
+            </td>
         </tr>
     `;
 }
 
-function renderGarageOptions(selectedGarageId = "") {
+function renderGarageOptions(selectedId) {
     const options = ['<option value="">Select a garage</option>'];
-
     for (const garage of garages) {
-        const selected = String(garage.garageId) === String(selectedGarageId) ? "selected" : "";
-        options.push(
-            `<option value="${garage.garageId}" ${selected}>${escapeHtml(garage.garageName)}</option>`
-        );
+        const selected = String(garage.garageId) === String(selectedId) ? "selected" : "";
+        options.push(`<option value="${garage.garageId}" ${selected}>${escapeHtml(garage.garageName)}</option>`);
     }
-
     return options.join("");
-}
-
-function syncGarageSelects() {
-    if (!garages.length) {
-        addGarageSelect.innerHTML = '<option value="">No garages available</option>';
-        return;
-    }
-
-    addGarageSelect.innerHTML = renderGarageOptions();
 }
 
 function getFilteredAppointments() {
@@ -316,19 +325,19 @@ function getFilteredAppointments() {
     });
 }
 
-function setNotice(message, type = "info") {
-    noticeEl.className = `notice ${type}`;
-    noticeEl.textContent = message;
+function setAddFormEnabled(enabled) {
+    addSubmitBtn.disabled = !enabled;
+    addGarageSelect.disabled = !enabled;
 }
 
 function invalidateEtag() {
     currentEtag = null;
-    etagValueEl.textContent = "Invalidated after update";
+    etagValueEl.textContent = "Invalidated after change";
 }
 
-function setAddFormEnabled(enabled) {
-    addSubmitBtn.disabled = !enabled;
-    addGarageSelect.disabled = !enabled;
+function setNotice(message, type = "info") {
+    noticeEl.className = `notice ${type}`;
+    noticeEl.textContent = message;
 }
 
 async function extractErrorMessage(response) {

@@ -1,7 +1,6 @@
 package com.example.carappointmentservice.client;
 
 import com.example.carappointmentservice.dto.Garage;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -26,7 +25,8 @@ public class GarageClient {
                         Mono.error(new IllegalArgumentException("Unable to load garage list")))
                 .onStatus(HttpStatusCode::is5xxServerError, response ->
                         Mono.error(new IllegalStateException("Garage service error")))
-                .bodyToMono(new ParameterizedTypeReference<List<Garage>>() {});
+                .bodyToFlux(Garage.class)
+                .collectList();
     }
 
     public Mono<Garage> getGarageById(Long garageId) {
