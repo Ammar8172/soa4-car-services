@@ -26,8 +26,8 @@ init();
 
 async function init() {
     document.getElementById("addAppointmentDate").value = new Date().toISOString().split("T")[0];
-    await loadGarages();
     await refreshAppointments();
+    await loadGarages();
 }
 
 async function loadGarages(showFeedback = false) {
@@ -42,21 +42,40 @@ async function loadGarages(showFeedback = false) {
             throw new Error(await extractErrorMessage(response));
         }
 
-        garages = await response.json();
-        garages.sort((left, right) => (left.garageName || "").localeCompare(right.garageName || ""));
-        garageCountEl.textContent = String(garages.length);
+        const loadedGarages = await response.json();
+        garages = Array.isArray(loadedGarages) ? loadedGarages : [];
+
+        if (!garages.length) {
+            garages = buildGarageListFromAppointments(cachedAppointments);
+        }
+
+        garages.sort((left, right) => {
+            const leftName = left?.garageName || "";
+            const rightName = right?.garageName || "";
+            return leftName.localeCompare(rightName);
+        });
+
         syncGarageSelects();
         setAddFormEnabled(garages.length > 0);
+        garageCountEl.textContent = String(garages.length);
 
         if (showFeedback) {
             setNotice("Garage list refreshed.", "success");
         }
     } catch (error) {
-        garages = [];
-        garageCountEl.textContent = "0";
+        garages = buildGarageListFromAppointments(cachedAppointments);
+        syncGarageSelects();
+        setAddFormEnabled(garages.length > 0);
+        garageCountEl.textContent = String(garages.length);
+
+        if (garages.length > 0) {
+            setNotice("Garage endpoint is unavailable, so the dropdown was built from the garages already attached to existing appointments.", "warning");
+            return;
+        }
+
         addGarageSelect.innerHTML = '<option value="">No garages available</option>';
         setAddFormEnabled(false);
-        setNotice(`Could not load garages. ${error.message || "Please make sure the garage service is running."}`, "error");
+        setNotice(`Could not load garages. ${error.message || "Please make sure the garage service and appointment service are both running."}`, "error");
     }
 }
 
@@ -79,6 +98,17 @@ async function refreshAppointments(showFeedback = false) {
         if (response.status === 200) {
             cachedAppointments = await response.json();
             renderAppointments(getFilteredAppointments());
+
+            if (!garages.length) {
+                const garageFallback = buildGarageListFromAppointments(cachedAppointments);
+                if (garageFallback.length) {
+                    garages = garageFallback;
+                    syncGarageSelects();
+                    setAddFormEnabled(true);
+                    garageCountEl.textContent = String(garages.length);
+                }
+            }
+
             if (showFeedback) {
                 setNotice("Appointments refreshed.", "success");
             }
@@ -228,9 +258,13 @@ function renderAppointments(appointments) {
 }
 
 function renderReadOnlyRow(appointment) {
+    const garageName = appointment.garage?.garageName || "Unavailable";
+    const garageLocation = appointment.garage?.location || "Unknown";
+    const garageSpeciality = appointment.garage?.speciality || "Unavailable";
+
     return `
         <tr>
-            <td>${escapeHtml(String(appointment.appointmentId))}</td>
+            <td class="nowrap">${escapeHtml(String(appointment.appointmentId))}</td>
             <td>
                 <div class="customer-cell">
                     <div>
@@ -239,31 +273,29 @@ function renderReadOnlyRow(appointment) {
                     </div>
                 </div>
             </td>
-            <td>
-                <div class="row-actions">
-                    <button type="button" class="btn-ghost" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
-                </div>
+            <td class="actions-cell">
+                <button type="button" class="btn-ghost action-btn" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
             </td>
             <td>${escapeHtml(appointment.carModel || "")}</td>
-            <td>${escapeHtml(appointment.registrationNumber || "")}</td>
-            <td>${escapeHtml(appointment.serviceType || "")}</td>
-            <td>${escapeHtml(appointment.appointmentDate || "")}</td>
-            <td>${escapeHtml(appointment.garage?.garageName || "N/A")}</td>
-            <td>${escapeHtml(appointment.garage?.location || "N/A")}</td>
-            <td>${escapeHtml(appointment.garage?.speciality || "N/A")}</td>
+            <td class="nowrap">${escapeHtml(appointment.registrationNumber || "")}</td>
+            <td class="nowrap">${escapeHtml(appointment.serviceType || "")}</td>
+            <td class="nowrap">${escapeHtml(appointment.appointmentDate || "")}</td>
+            <td>${escapeHtml(garageName)}</td>
+            <td>${escapeHtml(garageLocation)}</td>
+            <td>${escapeHtml(garageSpeciality)}</td>
         </tr>
     `;
 }
 
 function renderEditableRow(appointment) {
     return `
-        <tr data-edit-row="${appointment.appointmentId}">
-            <td>${escapeHtml(String(appointment.appointmentId))}</td>
+        <tr data-edit-row="${appointment.appointmentId}" class="editing-row">
+            <td class="nowrap">${escapeHtml(String(appointment.appointmentId))}</td>
             <td><input class="inline-input" data-field="customerName" value="${escapeAttribute(appointment.customerName || "")}" required></td>
-            <td>
+            <td class="actions-cell">
                 <div class="row-actions">
-                    <button type="button" data-action="save" data-id="${appointment.appointmentId}">Save</button>
-                    <button type="button" class="btn-secondary" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
+                    <button type="button" class="action-btn" data-action="save" data-id="${appointment.appointmentId}">Save</button>
+                    <button type="button" class="btn-secondary action-btn" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
                 </div>
             </td>
             <td><input class="inline-input" data-field="carModel" value="${escapeAttribute(appointment.carModel || "")}" required></td>
@@ -293,7 +325,33 @@ function renderGarageOptions(selectedGarageId = "") {
 }
 
 function syncGarageSelects() {
+    if (!garages.length) {
+        addGarageSelect.innerHTML = '<option value="">No garages available</option>';
+        return;
+    }
+
     addGarageSelect.innerHTML = renderGarageOptions();
+}
+
+function buildGarageListFromAppointments(appointments) {
+    const uniqueGarages = new Map();
+
+    appointments.forEach(appointment => {
+        const garage = appointment?.garage;
+        if (!garage?.garageId) {
+            return;
+        }
+
+        uniqueGarages.set(String(garage.garageId), {
+            garageId: garage.garageId,
+            garageName: garage.garageName || `Garage ${garage.garageId}`,
+            location: garage.location || "Unknown",
+            speciality: garage.speciality || "Unavailable",
+            phoneNumber: garage.phoneNumber || "Unavailable"
+        });
+    });
+
+    return Array.from(uniqueGarages.values());
 }
 
 function getFilteredAppointments() {
@@ -311,7 +369,8 @@ function getFilteredAppointments() {
             appointment.appointmentDate,
             appointment.garage?.garageName,
             appointment.garage?.location,
-            appointment.garage?.speciality
+            appointment.garage?.speciality,
+            appointment.garage?.phoneNumber
         ].join(" ").toLowerCase();
 
         return haystack.includes(query);

@@ -359,3 +359,19 @@ tbody tr:hover {
         width: 100%;
     }
 }
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.actions-cell {
+    min-width: 120px;
+}
+
+.action-btn {
+    min-width: 84px;
+}
+
+.editing-row {
+    background: #fbfdff;
+}

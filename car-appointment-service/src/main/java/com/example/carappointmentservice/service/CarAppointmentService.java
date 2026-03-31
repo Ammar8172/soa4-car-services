@@ -35,7 +35,10 @@ public class CarAppointmentService {
     public Mono<List<Garage>> getAllGarages() {
         return garageClient.getAllGarages()
                 .map(allGarages -> {
-                    allGarages.sort(Comparator.comparing(Garage::getGarageName, String.CASE_INSENSITIVE_ORDER));
+                    allGarages.sort(Comparator.comparing(
+                            garage -> garage.getGarageName() == null ? "" : garage.getGarageName(),
+                            String.CASE_INSENSITIVE_ORDER
+                    ));
                     return allGarages;
                 });
     }
