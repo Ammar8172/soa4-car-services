@@ -1,57 +1,53 @@
+version: "3.9"
+
 services:
-  garage-db:
-    image: postgres:16
-    container_name: garage-db
-    environment:
-      POSTGRES_DB: garagedb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d garagedb"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
-  appointment-db:
-    image: postgres:16
-    container_name: appointment-db
-    environment:
-      POSTGRES_DB: appointmentdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5434:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d appointmentdb"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   garage-service:
     build:
       context: ./garage-service
+      dockerfile: Dockerfile
     container_name: garage-service
-    environment:
-      GARAGE_DB_HOST: garage-db
     ports:
       - "8081:8081"
-    depends_on:
-      garage-db:
-        condition: service_healthy
-
-  car-appointment-service:
-    build:
-      context: ./car-appointment-service
-    container_name: car-appointment-service
     environment:
-      APPOINTMENT_DB_HOST: appointment-db
-      GARAGE_SERVICE_BASE_URL: http://garage-service:8081
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:h2:mem:garagedb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "true"
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_SQL_INIT_MODE: always
+      SPRING_H2_CONSOLE_ENABLED: "true"
+    networks:
+      - car-network
+
+  appointment-service:
+    build:
+      context: ./appointment-service
+      dockerfile: Dockerfile
+    container_name: appointment-service
     ports:
       - "8080:8080"
     depends_on:
-      appointment-db:
-        condition: service_healthy
-      garage-service:
-        condition: service_started
+      - garage-service
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:h2:mem:appointmentdb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ""
+      GARAGE_SERVICE_BASE_URL: http://garage-service:8081
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "true"
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_SQL_INIT_MODE: always
+      SPRING_H2_CONSOLE_ENABLED: "true"
+    networks:
+      - car-network
+
+networks:
+  car-network:
+    driver: bridge
