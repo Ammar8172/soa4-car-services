@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   garage-service:
     build:
@@ -20,12 +18,10 @@ services:
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_SQL_INIT_MODE: always
       SPRING_H2_CONSOLE_ENABLED: "true"
-    networks:
-      - car-network
 
   appointment-service:
     build:
-      context: ./appointment-service
+      context: ./car-appointment-service
       dockerfile: Dockerfile
     container_name: appointment-service
     ports:
@@ -45,9 +41,3 @@ services:
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_SQL_INIT_MODE: always
       SPRING_H2_CONSOLE_ENABLED: "true"
-    networks:
-      - car-network
-
-networks:
-  car-network:
-    driver: bridge
