@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -77,14 +78,13 @@ public class CarAppointmentController {
 
     @PostMapping
     public Mono<ResponseEntity<Object>> createAppointment(@Valid @RequestBody CarAppointment appointment) {
+        String requestUri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
         return appointmentService.createAppointment(appointment)
                 .<ResponseEntity<Object>>map(saved -> {
-                    URI location = ServletUriComponentsBuilder
-                            .fromCurrentRequest()
-                            .path("/{id}")
-                            .buildAndExpand(saved.getAppointmentId())
+                    URI location = UriComponentsBuilder.fromUriString(requestUri)
+                            .pathSegment(String.valueOf(saved.getAppointmentId()))
+                            .build()
                             .toUri();
-
                     return ResponseEntity.created(location).body(saved);
                 })
                 .onErrorResume(IllegalArgumentException.class,

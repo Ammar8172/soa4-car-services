@@ -254,6 +254,9 @@ function renderReadRow(appointment) {
         <tr>
             <td>${appointment.appointmentId ?? ""}</td>
             <td>${escapeHtml(appointment.customerName ?? "")}</td>
+            <td>
+                <button type="button" class="edit-btn" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
+            </td>
             <td>${escapeHtml(appointment.carModel ?? "")}</td>
             <td>${escapeHtml(appointment.registrationNumber ?? "")}</td>
             <td>${escapeHtml(appointment.serviceType ?? "")}</td>
@@ -261,9 +264,6 @@ function renderReadRow(appointment) {
             <td>${escapeHtml(appointment.garage?.garageName ?? "Unavailable")}</td>
             <td>${escapeHtml(appointment.garage?.location ?? "Unknown")}</td>
             <td>${escapeHtml(appointment.garage?.speciality ?? "Unavailable")}</td>
-            <td>
-                <button type="button" class="edit-btn" data-action="edit" data-id="${appointment.appointmentId}">Edit</button>
-            </td>
         </tr>
     `;
 }
@@ -273,6 +273,12 @@ function renderEditRow(appointment) {
         <tr class="editing-row" data-edit-row="${appointment.appointmentId}">
             <td>${appointment.appointmentId ?? ""}</td>
             <td><input class="inline-input" data-field="customerName" value="${escapeAttribute(appointment.customerName ?? "")}"></td>
+            <td>
+                <div class="row-actions">
+                    <button type="button" class="save-btn" data-action="save" data-id="${appointment.appointmentId}">Save</button>
+                    <button type="button" class="cancel-btn" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
+                </div>
+            </td>
             <td><input class="inline-input" data-field="carModel" value="${escapeAttribute(appointment.carModel ?? "")}"></td>
             <td><input class="inline-input" data-field="registrationNumber" value="${escapeAttribute(appointment.registrationNumber ?? "")}"></td>
             <td><input class="inline-input" data-field="serviceType" value="${escapeAttribute(appointment.serviceType ?? "")}"></td>
@@ -284,12 +290,6 @@ function renderEditRow(appointment) {
             </td>
             <td>${escapeHtml(appointment.garage?.location ?? "")}</td>
             <td>${escapeHtml(appointment.garage?.speciality ?? "")}</td>
-            <td>
-                <div class="row-actions">
-                    <button type="button" class="save-btn" data-action="save" data-id="${appointment.appointmentId}">Save</button>
-                    <button type="button" class="cancel-btn" data-action="cancel" data-id="${appointment.appointmentId}">Cancel</button>
-                </div>
-            </td>
         </tr>
     `;
 }
