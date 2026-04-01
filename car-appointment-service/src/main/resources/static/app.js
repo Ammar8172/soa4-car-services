@@ -16,6 +16,18 @@ const refreshBtn = document.getElementById("refreshBtn");
 const refreshGaragesBtn = document.getElementById("refreshGaragesBtn");
 const searchInput = document.getElementById("searchInput");
 
+function updateStatusDisplay(status, statusText) {
+    lastStatusEl.textContent = `${status} ${statusText}`;
+    lastStatusEl.className = "";
+    if (status === 304) {
+        lastStatusEl.className = "status-cached";
+    } else if (status >= 200 && status < 300) {
+        lastStatusEl.className = "status-ok";
+    } else {
+        lastStatusEl.className = "status-error";
+    }
+}
+
 refreshBtn.addEventListener("click", () => refreshAppointments(true));
 refreshGaragesBtn.addEventListener("click", () => loadGarages(true));
 addForm.addEventListener("submit", addAppointment);
@@ -37,7 +49,7 @@ async function loadGarages(showFeedback = false) {
         setAddFormEnabled(false);
 
         const response = await fetch("/appointments/garages");
-        lastStatusEl.textContent = `${response.status} ${response.statusText}`;
+        updateStatusDisplay(response.status, response.statusText);
 
         if (!response.ok) {
             throw new Error(await extractErrorMessage(response));
@@ -75,7 +87,7 @@ async function refreshAppointments(showFeedback = false) {
         }
 
         const response = await fetch("/appointments", { headers });
-        lastStatusEl.textContent = `${response.status} ${response.statusText}`;
+        updateStatusDisplay(response.status, response.statusText);
 
         const responseEtag = response.headers.get("ETag");
         if (responseEtag) {
@@ -132,7 +144,7 @@ async function addAppointment(event) {
             body: JSON.stringify(payload)
         });
 
-        lastStatusEl.textContent = `${response.status} ${response.statusText}`;
+        updateStatusDisplay(response.status, response.statusText);
 
         if (!response.ok) {
             throw new Error(await extractErrorMessage(response));
@@ -219,7 +231,7 @@ async function saveEditedAppointment(appointmentId) {
             body: JSON.stringify(payload)
         });
 
-        lastStatusEl.textContent = `${response.status} ${response.statusText}`;
+        updateStatusDisplay(response.status, response.statusText);
 
         if (!response.ok) {
             throw new Error(await extractErrorMessage(response));
