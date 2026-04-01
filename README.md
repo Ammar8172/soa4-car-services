@@ -8,7 +8,6 @@ This repository contains a complete SOA4 project based on a car-services theme:
 The project demonstrates:
 
 - Spring Boot + Spring Data JPA
-- Separate PostgreSQL database per service
 - Service-to-service communication using **WebClient** (request-response, asynchronous nonblocking style)
 - **ETag HTTP caching** on the collection endpoint only
 - Static **HTML/CSS/JavaScript** client
