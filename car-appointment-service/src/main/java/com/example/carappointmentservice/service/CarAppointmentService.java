@@ -19,11 +19,13 @@ public class CarAppointmentService {
     private final CarAppointmentRepository repository;
     private final GarageClient garageClient;
 
+    // Injects the appointment repository and garage HTTP client
     public CarAppointmentService(CarAppointmentRepository repository, GarageClient garageClient) {
         this.repository = repository;
         this.garageClient = garageClient;
     }
 
+    // Retrieves all appointments and enriches each one with its garage details
     public Mono<List<AppointmentResponse>> getAllAppointmentsWithGarage() {
         List<CarAppointment> appointments = repository.findAll();
 
@@ -32,6 +34,7 @@ public class CarAppointmentService {
                 .collectList();
     }
 
+    // Fetches all garages from the garage service, sorted alphabetically by name
     public Mono<List<Garage>> getAllGarages() {
         return garageClient.getAllGarages()
                 .map(allGarages -> {
@@ -43,6 +46,7 @@ public class CarAppointmentService {
                 });
     }
 
+    // Retrieves a single appointment by ID and attaches its garage details; returns empty if not found
     public Mono<AppointmentResponse> getAppointmentByIdWithGarage(Long id) {
         Optional<CarAppointment> appointment = repository.findById(id);
         if (appointment.isEmpty()) {
@@ -51,6 +55,7 @@ public class CarAppointmentService {
         return buildResponse(appointment.get());
     }
 
+    // Validates the garage ID then saves and returns the new appointment
     public Mono<CarAppointment> createAppointment(CarAppointment appointment) {
         appointment.setAppointmentId(null);
 
@@ -58,6 +63,7 @@ public class CarAppointmentService {
                 .map(valid -> repository.save(appointment));
     }
 
+    // Updates an existing appointment's fields after validating the garage; returns empty if not found
     public Mono<CarAppointment> editAppointment(Long id, CarAppointment updatedAppointment) {
         Optional<CarAppointment> existing = repository.findById(id);
 
@@ -77,6 +83,7 @@ public class CarAppointmentService {
                 .map(valid -> repository.save(appointment));
     }
 
+    // Builds an AppointmentResponse by combining appointment data with its garage details
     private Mono<AppointmentResponse> buildResponse(CarAppointment appointment) {
         return garageClient.getGarageById(appointment.getGarageId())
                 .onErrorResume(ex -> Mono.just(Garage.unavailable(appointment.getGarageId())))
@@ -91,6 +98,7 @@ public class CarAppointmentService {
                 ));
     }
 
+    // Checks that the garage exists; throws an error if it does not
     private Mono<Boolean> validateGarage(Long garageId) {
         return garageClient.garageExists(garageId)
                 .flatMap(exists -> exists

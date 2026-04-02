@@ -34,11 +34,13 @@ public class CarAppointmentController {
     private final CarAppointmentService appointmentService;
     private final ObjectMapper objectMapper;
 
+    // Injects the appointment service and JSON object mapper
     public CarAppointmentController(CarAppointmentService appointmentService, ObjectMapper objectMapper) {
         this.appointmentService = appointmentService;
         this.objectMapper = objectMapper;
     }
 
+    // Returns all appointments with garage info; supports ETag caching to avoid unnecessary data transfer
     @GetMapping
     public Mono<ResponseEntity<List<AppointmentResponse>>> getAllAppointments(
             @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
@@ -59,6 +61,7 @@ public class CarAppointmentController {
                 });
     }
 
+    // Returns the list of available garages; responds with 503 if the garage service is unreachable
     @GetMapping("/garages")
     public Mono<ResponseEntity<?>> getAvailableGarages() {
         return appointmentService.getAllGarages()
@@ -69,6 +72,7 @@ public class CarAppointmentController {
                 ));
     }
 
+    // Returns a single appointment by ID with garage details, or 404 if not found
     @GetMapping("/{id}")
     public Mono<ResponseEntity<AppointmentResponse>> getAppointmentById(@PathVariable Long id) {
         return appointmentService.getAppointmentByIdWithGarage(id)
@@ -76,6 +80,7 @@ public class CarAppointmentController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    // Creates a new appointment and returns its location URL; returns 400 if the garage ID is invalid
     @PostMapping
     public Mono<ResponseEntity<Object>> createAppointment(@Valid @RequestBody CarAppointment appointment) {
         String requestUri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
@@ -91,6 +96,7 @@ public class CarAppointmentController {
                         ex -> Mono.just(ResponseEntity.badRequest().body(ex.getMessage())));
     }
 
+    // Updates an existing appointment by ID; returns 404 if not found or 400 if the garage ID is invalid
     @PutMapping("/{id}")
     public Mono<ResponseEntity<Object>> editAppointment(@PathVariable Long id,
                                                         @Valid @RequestBody CarAppointment updatedAppointment) {
@@ -101,6 +107,7 @@ public class CarAppointmentController {
                         ex -> Mono.just(ResponseEntity.badRequest().body(ex.getMessage())));
     }
 
+    // Generates an MD5-based ETag from the serialized list of appointments
     private String generateEtag(List<AppointmentResponse> appointments) {
         try {
             String json = objectMapper.writeValueAsString(appointments);
@@ -110,6 +117,7 @@ public class CarAppointmentController {
         }
     }
 
+    // Strips weak-validator prefix and quotes from a raw ETag header value for comparison
     private String normalizeEtag(String rawEtag) {
         if (rawEtag == null || rawEtag.isBlank()) {
             return "";

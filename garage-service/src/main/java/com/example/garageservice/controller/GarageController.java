@@ -17,15 +17,18 @@ public class GarageController {
 
     private final GarageRepository garageRepository;
 
+    // Injects the garage repository for database operations
     public GarageController(GarageRepository garageRepository) {
         this.garageRepository = garageRepository;
     }
 
+    // Returns the full list of all garages in the database
     @GetMapping
     public List<Garage> getAllGarages() {
         return garageRepository.findAll();
     }
 
+    // Returns a single garage by its ID, or 404 if not found
     @GetMapping("/{id}")
     public ResponseEntity<Garage> getGarageById(@PathVariable Long id) {
         Optional<Garage> garage = garageRepository.findById(id);
@@ -33,6 +36,7 @@ public class GarageController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // Creates a new garage entry and returns its location URL in the response header
     @PostMapping
     public ResponseEntity<Garage> createGarage(@Valid @RequestBody Garage garage) {
         garage.setGarageId(null);
@@ -47,6 +51,7 @@ public class GarageController {
         return ResponseEntity.created(location).body(saved);
     }
 
+    // Updates an existing garage's details by ID; returns 404 if the garage does not exist
     @PutMapping("/{id}")
     public ResponseEntity<Garage> editGarage(@PathVariable Long id, @Valid @RequestBody Garage updatedGarage) {
         Optional<Garage> existing = garageRepository.findById(id);
