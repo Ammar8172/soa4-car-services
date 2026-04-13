@@ -18,6 +18,8 @@ services:
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_SQL_INIT_MODE: always
       SPRING_H2_CONSOLE_ENABLED: "true"
+      SPRING_H2_CONSOLE_PATH: /h2-console
+      SPRING_H2_CONSOLE_SETTINGS_WEB_ALLOW_OTHERS: "true"
 
   appointment-service:
     build:
@@ -41,3 +43,5 @@ services:
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_SQL_INIT_MODE: always
       SPRING_H2_CONSOLE_ENABLED: "true"
+      SPRING_H2_CONSOLE_PATH: /h2-console
+      SPRING_H2_CONSOLE_SETTINGS_WEB_ALLOW_OTHERS: "true"
